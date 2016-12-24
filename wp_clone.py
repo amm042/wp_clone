@@ -96,7 +96,7 @@ def clone(wp_src_path, wp_dst_path, wp_dst_prefix,
                 wp_dst_prefix)
         else:
             new_siteurl = select_url("Choose the new site url: ",
-                siteurl, wp_dst_prefix)
+                siteurl, os.path.join(wp_dst_path, wp_dst_prefix))
 
         if home.endswith(config['table_prefix'][:-1]):
             new_home = home.replace(
@@ -104,7 +104,7 @@ def clone(wp_src_path, wp_dst_path, wp_dst_prefix,
                 wp_dst_prefix)
         else:
             new_home = select_url("Choose the new home: ",
-                home, wp_dst_prefix)
+                home, os.path.join(wp_dst_path, wp_dst_prefix))
 
         print("New siteurl: {}".format(new_siteurl))
         print("New home: {}".format(new_home))
