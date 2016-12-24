@@ -69,7 +69,7 @@ def select_url(prompt, old_url, dst_prefix):
         except:
             print("enter a number!")
             x = None
-    return op[int(x)]
+    return opts[int(x)]
 
 def clone(wp_src_path, wp_dst_path, wp_dst_prefix,
     db=False, copy=False, private=True, **kwargs):
