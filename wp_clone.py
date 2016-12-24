@@ -61,7 +61,7 @@ def select_url(prompt, old_url, dst_prefix):
     opts = [urllib.parse.urlunparse( (o[0], o[1], "/".join(parts[:-i])) + o[3:])
         for i in len(parts)]
     while x == None or int(x) not in range(len(parts)):
-        for i,op in enumerate(opts)::
+        for i,op in enumerate(opts):
             print("[{}]: {}".format(i, op))
         x = input(prompt)
         try:
