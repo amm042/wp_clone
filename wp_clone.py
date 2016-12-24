@@ -53,6 +53,23 @@ def prompt_continue():
     if (x == "" or x.lower()[0] == 'n'):
         print("Abort", file=sys.stderr)
         exit(-5)
+def select_url(prompt, old_url, dst_prefix):
+    o = urllib.parse.urlparse(old_url)
+    paths = []
+    parts = o.path.split('/')
+    x = None
+    opts = [urllib.parse.urlunparse( (o[0], o[1], "/".join(parts[:-i])) + o[3:])
+        for i in len(parts)]
+    while x == None or int(x) not in range(len(parts)):
+        for i,op in enumerate(opts)::
+            print("[{}]: {}".format(i, op))
+        x = input(prompt)
+        try:
+            y = int(x)
+        except:
+            print("enter a number!")
+            x = None
+    return op[int(x)]
 
 def clone(wp_src_path, wp_dst_path, wp_dst_prefix,
     db=False, copy=False, private=True, **kwargs):
@@ -78,14 +95,16 @@ def clone(wp_src_path, wp_dst_path, wp_dst_prefix,
                 config['table_prefix'][:-1],
                 wp_dst_prefix)
         else:
-            new_siteurl = urllib.parse.join(siteurl, wp_dst_prefix)
+            new_siteurl = select_url("Choose the new site url: ",
+                siteurl, wp_dst_prefix)
 
         if home.endswith(config['table_prefix'][:-1]):
             new_home = home.replace(
                 config['table_prefix'][:-1],
                 wp_dst_prefix)
         else:
-            new_home = urllib.parse.join(home, wp_dst_prefix)
+            new_home = select_url("Choose the new home: ",
+                home, wp_dst_prefix)
 
         print("New siteurl: {}".format(new_siteurl))
         print("New home: {}".format(new_home))
