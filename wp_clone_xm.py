@@ -1,4 +1,5 @@
-#!/usr/bin/env python3
+#!/usr/remote/anaconda-3.5/bin/python3
+
 """clone a wordpress site, changing prefix and fixing up all
    necessary tables.
 
@@ -8,12 +9,44 @@
    http://tdot-blog.com/wordpress/6-simple-steps-to-change-your-table-prefix-in-wordpress
 
    Alan Marchiori 2016
+
+   Xiannong Meng made a few minor changes to run the program in his Linux environment. This is really a bit hacking, as the solutions to make the program work are not very satisfying.
+   2017-05-15
+
+0. The origianl program is still named 'wp_clone.py' in the same directory. The current file is named 'wp_clone_xm.py'.
+
+1. Changed the python environment from
+   /usr/bin/env python3
+   to a direct path
+   /usr/remote/anaconda-3.5/bin/python3
+   as he can't figure out how to make 'cs206' have access to the anaconda-3.5 environment for the SQL client
+
+2. changed 
+   import mysql.connector as sql
+   to
+   import MySQLdb as sql
+   MySQLdb is the SQL client package for anaconda-3.5
+
+3. Because of 2., the connect() function was changed a bit to run under MySQLdb. Changes are from
+   def connect(host, user, passwd, database):
+       return sql.connect(user=user, password= passwd,
+       host=host, database=database)
+
+   to 
+
+   def connect(host, user, passwd, database):
+       return sql.connect(host=host, user=user, passwd=passwd, db=database)
+
+   mainly the order and name of the parameters.
+
+4. Remove all of the "end=" in print() statements. This was done earlier. For whatever reason, probably a particular version of Python, Python would complain "invalid syntax" for any and all "end = ..." clause within the print() statement. After having figured out using anaconda-3.5 directly (see the first line of the program), I didn't go back to change the printing statements to their originals, which probably would work now.
 """
+import MySQLdb as sql
 import os
 import os.path
 import sys
 import re
-import mysql.connector as sql
+#import mysql.connector as sql
 from pprint import pprint
 import urllib.parse
 import shutil
@@ -33,8 +66,7 @@ def read_wp_config(cfile):
     return config
 
 def connect(host, user, passwd, database):
-    return sql.connect(user=user, password= passwd,
-    host=host, database=database)
+    return sql.connect(host=host, user=user, passwd=passwd, db=database)
 
 def getoptions(cursor, wp_prefix, options):
     r = []
@@ -51,7 +83,7 @@ def prompt_continue():
     while x == None or (len(x)> 0 and x.lower()[0] not in ['y', 'n']):
         x = input("Continue [y/N]: ")
     if (x == "" or x.lower()[0] == 'n'):
-        print("Abort", file=sys.stderr)
+        print("Abort")
         exit(-5)
 def select_url(prompt, old_url, dst_prefix):
     o = urllib.parse.urlparse(old_url)
@@ -94,6 +126,9 @@ def clone(wp_src_path, wp_dst_path, wp_dst_prefix,
             new_siteurl = siteurl.replace(
                 config['table_prefix'][:-1],
                 wp_dst_prefix)
+            print('Debug: siteurl ' + config['table_prefix'][:-1])
+            print('Debug: new dst prfix ' + wp_dst_prefix)
+            print('Debug: siteurl ' + siteurl)
         else:
             new_siteurl = select_url("Choose the new site url: ",
                 siteurl, os.path.join(wp_dst_path, wp_dst_prefix))
@@ -102,10 +137,25 @@ def clone(wp_src_path, wp_dst_path, wp_dst_prefix,
             new_home = home.replace(
                 config['table_prefix'][:-1],
                 wp_dst_prefix)
+            print('Debug: home ' + config['table_prefix'][:-1])
+            print('Debug: new dst prfix ' + wp_dst_prefix)
+            print('Debug: home ' + home)
         else:
             new_home = select_url("Choose the new home: ",
                 home, os.path.join(wp_dst_path, wp_dst_prefix))
 
+        new_siteurl = 'http://eg.bucknell.edu/~csci203/2017-fall/' + wp_dst_prefix
+        new_home = 'http://eg.bucknell.edu/~csci203/2017-fall/' + wp_dst_prefix
+        '''
+        with the above hacking, I used the following command to clone
+
+sudo -u csci203 ./wp_clone/wp_clone_xm.py --copy --db --private ./2017-spring/wp2017spring/ wp2017fall
+
+        as a result the folder 'wp2017fall' was created directly under
+        public_html
+        I had to move the folder under 2017-fall/ manually (!!!) by
+        sudo -u csci203 mv wp2017fall 2017-fall/
+        '''
         print("New siteurl: {}".format(new_siteurl))
         print("New home: {}".format(new_home))
 
@@ -155,7 +205,7 @@ def clone(wp_src_path, wp_dst_path, wp_dst_prefix,
             shutil.move(new_config.name, old_config.name)
         else:
             print("The destination wp-config file cannot be found, it should be at {}"
-                .format(new_config_filename), file=sys.stderr)
+                .format(new_config_filename))
             exit(-6)
 
         # copy database
@@ -168,7 +218,7 @@ def clone(wp_src_path, wp_dst_path, wp_dst_prefix,
                 if table_name.startswith(config['table_prefix']):
                     new_table = table_name.replace(
                         config['table_prefix'], wp_dst_prefix+'_')
-                    print("Cloning {} --> {}".format(table_name, new_table), end="")
+                    print("Cloning {} --> {}".format(table_name, new_table))
 
                     cursor.execute("SHOW CREATE TABLE {}".format(table_name))
                     tname, ccmd = cursor.fetchone()
@@ -202,7 +252,7 @@ def clone(wp_src_path, wp_dst_path, wp_dst_prefix,
                         rows = cursor.fetchall()
                         for (optid, optname) in rows:
                             new_optname = optname.replace(config['table_prefix'], wp_dst_prefix+'_')
-                            print("change {}.{} -> {}.{}".format(optid, optname, optid, new_optname), end="")
+                            print("change {}.{} -> {}.{}".format(optid, optname, optid, new_optname))
                             cursor.execute("UPDATE {} SET option_name = '{}' WHERE option_id = {}"
                                 .format(table_name, new_optname, optid))
                             print (", changed {} records.".format(cursor.rowcount))
@@ -216,7 +266,7 @@ def clone(wp_src_path, wp_dst_path, wp_dst_prefix,
 
                             print("change {}.{}.{} -> {}.{}.{}".format(
                                 umeta_id, user_id, meta_key,
-                                umeta_id, user_id, new_key), end="")
+                                umeta_id, user_id, new_key))
                             cursor.execute("UPDATE {} SET meta_key = '{}' WHERE umeta_id = {} and user_id = {}"
                                 .format(table_name, new_key, umeta_id, user_id))
                             print (", changed {} records.".format(cursor.rowcount))
@@ -232,7 +282,7 @@ def clone(wp_src_path, wp_dst_path, wp_dst_prefix,
                             print("change guid {}.{} -> {}.{}".format(pid,guid,pid,new_guid))
                             changes.append((new_guid, pid))
 
-                        print ("Updating {} guids (wait for db)".format(len(changes)), flush = True, end = "")
+                        print ("Updating {} guids (wait for db)".format(len(changes)))
                         cursor.executemany(
                             "UPDATE {} SET guid = %s WHERE ID = %s".format(table_name),
                             changes)
@@ -250,7 +300,7 @@ def clone(wp_src_path, wp_dst_path, wp_dst_prefix,
                                 print("update urls in post ID {}".format(pid))
                                 changes.append((new_content, pid))
 
-                        print ("Updating {} posts (wait for db)".format(len(changes)), flush = True, end = "")
+                        print ("Updating {} posts (wait for db)".format(len(changes)))
                         cursor.executemany(
                             "UPDATE {} SET post_content = %s WHERE ID = %s".format(table_name),
                             changes
@@ -260,7 +310,7 @@ def clone(wp_src_path, wp_dst_path, wp_dst_prefix,
                         del changes
 
         if private == True:
-            print("Marking posts pending/private", end="")
+            print("Marking posts pending/private")
             cursor.execute("UPDATE {}_posts SET post_status = 'pending' WHERE post_status = 'publish' and post_type='post'"
                 .format(wp_dst_prefix))
             print(", modified {} posts.".format(cursor.rowcount))
@@ -315,7 +365,7 @@ if __name__=="__main__":
 
     if args.exists == False and os.path.exists (dst_site):
         print("The destination site already exists!, remove {} and try again."
-            .format(dst_site), file=sys.stderr)
+            .format(dst_site))
         exit(-1)
 
     if args.dst_prefix.endswith("_"):
