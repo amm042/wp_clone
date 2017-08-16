@@ -8,12 +8,18 @@
    http://tdot-blog.com/wordpress/6-simple-steps-to-change-your-table-prefix-in-wordpress
 
    Alan Marchiori 2016
+
+   Note, you can clone sites that use SqlLite by leaving off the DB option,
+   however you might have to fixup the wp-config file by hand. (change the
+   table prefix back to the old value and check siteurl and homeurl)
+
 """
 import os
 import os.path
 import sys
 import re
-import mysql.connector as sql
+#import mysql.connector as sql
+import MySQLdb as sql
 from pprint import pprint
 import urllib.parse
 import shutil
@@ -58,8 +64,16 @@ def select_url(prompt, old_url, dst_prefix):
     paths = []
     parts = o.path.split('/')
     x = None
+    #o = list(o)
+    #o.remove("")
+    #parts.remove("")
+    print("dst_prefix ", dst_prefix)
+    print (old_url)
+    print (o)
+    print (parts)
     opts = [urllib.parse.urlunparse( (o[0], o[1], "/".join(parts[:-i] + [dst_prefix])) + o[3:])
         for i in range(len(parts))]
+
     while x == None or int(x) not in range(len(parts)):
         for i,op in enumerate(opts):
             print("[{}]: {}".format(i, op))
@@ -76,16 +90,35 @@ def clone(wp_src_path, wp_dst_path, wp_dst_prefix,
 
     config = read_wp_config(os.path.join(args.src, 'wp-config.php'))
 
-    print("--Processing database.")
+    wp_dst_path = wp_dst_path[2:]
+    print("dst_prefix ",wp_dst_prefix)
+    print("dst_path", wp_dst_path)
 
-    dbx = connect(
-            config['DB_HOST'], config['DB_USER'],
-            config['DB_PASSWORD'], config['DB_NAME'])
-    cursor = dbx.cursor()
 
-    try:
+    if (db):
+
+        print("--Processing database.")
+        dbx = connect(
+                config['DB_HOST'], config['DB_USER'],
+                config['DB_PASSWORD'], config['DB_NAME'])
+        cursor = dbx.cursor()
+
         siteurl, home = getoptions(
             cursor, config['table_prefix'], ['siteurl', 'home'])
+
+    else:
+        dbx = None
+        cursor = None
+
+        if 'WP_SITEURL' not in config or 'WP_HOME' not in config:
+            print("Must run with DB if WP_HOME and WP_SITEURL are NOT defined in your wp-config.php file.")
+            exit(-4)
+
+        siteurl = config['WP_SITEURL']
+        home = config['WP_HOME']
+
+    try:
+
 
         print("Source siteurl: {}".format(siteurl))
         print("Source home: {}".format(home))
@@ -259,7 +292,7 @@ def clone(wp_src_path, wp_dst_path, wp_dst_prefix,
                         dbx.commit()
                         del changes
 
-        if private == True:
+        if db and private == True:
             print("Marking posts pending/private", end="")
             cursor.execute("UPDATE {}_posts SET post_status = 'pending' WHERE post_status = 'publish' and post_type='post'"
                 .format(wp_dst_prefix))
